@@ -109,14 +109,8 @@ class ParticipationModelsTest(TestCase):
         node = Node.objects.get(pk=1)
         self.assertEqual(0, node.rating_count.likes)
         self.assertEqual(0, node.rating_count.dislikes)
-    
-    def test_voting_allowed_for_node(self):
-        """
-        Ensure voting allowed model method is working correctly
-        """
-        #node = 
         
-    def test_node_comment_api(self,*args,**kwargs):
+    def test_node_comment_api(self):
         """
         Comments endpoint should be reachable with GET and return 404 if object is not found.
         POST method allowed
@@ -207,8 +201,8 @@ class ParticipationModelsTest(TestCase):
         self.client.logout()
         response = self.client.post(url, good_post_data)
         self.assertEqual(response.status_code, 403)
-                  
-    def test_ratings_api(self,*args,**kwargs):    
+    
+    def test_ratings_api(self):
         """
         Ratings endpoint should be reachable only with POST and return 404 if object is not found.
         """
@@ -292,7 +286,7 @@ class ParticipationModelsTest(TestCase):
         response = self.client.post(url, good_post_data)
         self.assertEqual(response.status_code, 403)
         
-    def test_votes_api(self,*args,**kwargs):    
+    def test_votes_api(self):    
         """
         Vote endpoint should be reachable only with POST and return 404 if object is not found.
         """
@@ -318,7 +312,7 @@ class ParticipationModelsTest(TestCase):
         login=self.client.login(username='admin', password='tester')
         good_post_data= { "vote": "1" }
         
-        #wrong slug -- 404
+        # wrong slug -- 404
         response = self.client.post(wrong_url, good_post_data)
         self.assertEqual(response.status_code, 404)
         
@@ -432,7 +426,7 @@ class ParticipationModelsTest(TestCase):
         response = self.client.post(url)
         self.assertEqual(response.status_code, 405)   
         
-    def test_node_participation_api(self,*args,**kwargs):
+    def test_node_participation_api(self):
         """
         Participation endpoint should be reachable only with GET and return 404 if object is not found.
         """
@@ -467,3 +461,28 @@ class ParticipationModelsTest(TestCase):
         login=self.client.login(username='admin', password='tester')
         response = self.client.post(url)
         self.assertEqual(response.status_code, 405)
+    
+    def test_has_already_voted_on_node(self):
+        node = Node.objects.get(pk=1)
+        url = reverse('api_node_details', args=[node.slug])
+        
+        # logged out expects False
+        self.client.logout()
+        response = self.client.get(url)
+        self.assertEqual(response.data['relationships']['has_already_voted'], False)
+        
+        # logged in not voted yet expects False
+        self.client.login(username='admin', password='tester')
+        response = self.client.get(url)
+        self.assertEqual(response.data['relationships']['has_already_voted'], False)
+        
+        # has already liked expects 1
+        v = Vote.objects.create(node_id=node.id, user_id=1, vote=1)
+        response = self.client.get(url)
+        self.assertEqual(response.data['relationships']['has_already_voted'], 1)
+        
+        # has already disliked expects -1
+        v.delete()
+        v = Vote.objects.create(node_id=node.id, user_id=1, vote=-1)
+        response = self.client.get(url)
+        self.assertEqual(response.data['relationships']['has_already_voted'], -1)

@@ -19,32 +19,31 @@ from node_participation_settings import NodeParticipationSettings
 from node_rating_count import NodeRatingCount
 
 
-
 __all__ = [
-    'NodeRatingCount',
     'Comment',
     'Vote',
     'Rating',
     'NodeParticipationSettings',
+    'NodeRatingCount',
 ]
 
 
-### ------ Layers Operations ------ ###
+# ------ Layers Operations ------ #
 
 
 if 'nodeshot.core.layers' in settings.INSTALLED_APPS:
     from layer_participation_settings import LayerParticipationSettings
-    
+
     __all__ += ['LayerParticipationSettings']
-    
+
     from nodeshot.core.layers.models import Layer
-    
+
     @property
     def _layer_participation_settings(self):
         """
         Return layer_participation_settings record
         or create it if it does not exist
-        
+
         usage:
         layer = Layer.objects.get(pk=1)
         layer.participation_settings
@@ -55,21 +54,22 @@ if 'nodeshot.core.layers' in settings.INSTALLED_APPS:
             layer_participation_settings = LayerParticipationSettings(layer=self)
             layer_participation_settings.save()
             return layer_participation_settings
-    
+
     Layer.participation_settings = _layer_participation_settings
 
 
-### ------ Add methods to Node Model ------ ###
+# ------ Add methods to Node Model ------ #
 
 
 from nodeshot.core.nodes.models import Node
+
 
 @property
 def _node_rating_count(self):
     """
     Return node_rating_count record
     or create it if it does not exist
-    
+
     usage:
     node = Node.objects.get(pk=1)
     node.rating_count
@@ -83,12 +83,13 @@ def _node_rating_count(self):
 
 Node.rating_count = _node_rating_count
 
+
 @property
 def _node_participation_settings(self):
     """
     Return node_participation_settings record
     or create it if it does not exist
-    
+
     usage:
     node = Node.objects.get(pk=1)
     node.participation_settings
@@ -103,12 +104,41 @@ def _node_participation_settings(self):
 Node.participation_settings = _node_participation_settings
 
 
+def _action_allowed(self, action):
+    """
+    participation actions can be disabled on layer level, or disabled on a per node basis
+    """
+    if getattr(self.layer.participation_settings, '{0}_allowed'.format(action)) is False:
+        return False
+    else:
+        return getattr(self.participation_settings, '{0}_allowed'.format(action))
+
+
+@property
+def _voting_allowed(self):
+    return _action_allowed(self, 'voting')
+
+
+@property
+def _rating_allowed(self):
+    return _action_allowed(self, 'rating')
+
+
+@property
+def _comments_allowed(self):
+    return _action_allowed(self, 'comments')
+
+
+Node.voting_allowed = _voting_allowed
+Node.rating_allowed = _rating_allowed
+Node.comments_allowed = _comments_allowed
+
+
 # ------ SIGNALS ------ #
 
 
 from django.dispatch import receiver
 from django.db.models.signals import post_save
-from nodeshot.core.nodes.models import Node
 
 from ..tasks import create_related_object
 
@@ -122,8 +152,8 @@ def create_node_rating_counts_settings(sender, **kwargs):
         # create node_rating_count and settings
         # task will be executed in background unless settings.CELERY_ALWAYS_EAGER is True
         # if CELERY_ALWAYS_EAGER is False celery worker must be running otherwise task won't be executed
-        create_related_object.delay(NodeRatingCount, { 'node': node })
-        create_related_object.delay(NodeParticipationSettings, { 'node': node })
+        create_related_object.delay(NodeRatingCount, {'node': node})
+        create_related_object.delay(NodeParticipationSettings, {'node': node})
 
 
 @receiver(post_save, sender=Layer)
@@ -135,5 +165,4 @@ def create_layer_rating_settings(sender, **kwargs):
         # create layer participation settings
         # task will be executed in background unless settings.CELERY_ALWAYS_EAGER is True
         # if CELERY_ALWAYS_EAGER is False celery worker must be running otherwise task won't be executed
-        create_related_object.delay(LayerParticipationSettings, { 'layer': layer })
-
+        create_related_object.delay(LayerParticipationSettings, {'layer': layer})

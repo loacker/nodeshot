@@ -1,7 +1,0 @@
-# dev utils
-bpython
-django-extensions
-django-debug-toolbar
-
-# websockets
-tornado==3.2

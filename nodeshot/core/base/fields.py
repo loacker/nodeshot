@@ -39,6 +39,7 @@ class MultiSelectField(models.Field):
     def _get_FIELD_display(self, field):
         value = getattr(self, field.attname)
         choicedict = dict(field.choices)
+        return choicedict.get(value, value)
  
     def formfield(self, **kwargs):
         # don't call super, as that overrides default widget if it has choices
@@ -66,7 +67,9 @@ class MultiSelectField(models.Field):
     def contribute_to_class(self, cls, name):
         super(MultiSelectField, self).contribute_to_class(cls, name)
         if self.choices:
-            func = lambda self, fieldname = name, choicedict = dict(self.choices): ",".join([choicedict.get(value, value) for value in getattr(self, fieldname)])
+            func = lambda self, fieldname = name, choicedict = dict(self.choices): ",".join([
+                choicedict.get(value, value) for value in getattr(self, fieldname)
+            ])
             setattr(cls, 'get_%s_display' % self.name, func)
  
     def validate(self, value, model_instance):
@@ -123,37 +126,3 @@ if 'south' in settings.INSTALLED_APPS:
     from south.modelsinspector import add_introspection_rules
     add_introspection_rules([], ["^coop\.utils\.fields\.MultiSelectField"])
     add_introspection_rules([], ["^nodeshot\.core\.base\.fields\.RGBColorField"])
-
-
-# rest_framework MacAddressField
-from django.core.exceptions import ValidationError
-from django.utils.translation import ugettext_lazy as _
-from rest_framework.fields import WritableField
-
-
-# rest_framework HStoreDictionaryField
-from django_hstore.fields import HStoreDict
-from django_hstore.exceptions import HStoreDictException
-
-
-class HStoreDictionaryField(WritableField):
-    """
-    A field to handle HStore Dictionary field as a string
-    """
-    
-    def from_native(self, value):
-        if value:
-            try:
-                return HStoreDict(value)
-            except HStoreDictException as e:
-                raise ValidationError(_('Invalid JSON: %s' % e.json_error_message))
-        else:
-            return None
-
-    def to_native(self, value):
-        if isinstance(value, dict) or value is None:
-            return value
-        
-        value = HStoreDict(value)
-
-        return value

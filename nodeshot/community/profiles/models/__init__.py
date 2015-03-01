@@ -1,52 +1,30 @@
 # part of the code of this app is based on pinax.account
 
-from django.conf import settings
-from nodeshot.core.base.utils import check_dependencies
-
-if settings.NODESHOT['SETTINGS'].get('PROFILE_EMAIL_CONFIRMATION', True):
-    check_dependencies(
-        dependencies='emailconfirmation',
-        module='nodeshot.community.profiles'
-    )
+from ..settings import EMAIL_CONFIRMATION
 
 
 from .profile import Profile
 from .social_link import SocialLink
 from .password_reset import PasswordReset
+from .emailconfirmation import EmailAddress, EmailConfirmation
 
-__all__ = ['Profile', 'SocialLink', 'PasswordReset']
-
+__all__ = [
+    'Profile',
+    'SocialLink',
+    'PasswordReset',
+    'EmailAddress',
+    'EmailConfirmation'
+]
 
 # ------ SIGNALS ------ #
 
-# perform certain actions when some other parts of the application changes
-# eg: update user statistics when a new device is added
+# activate user on email confirmation
 
-from django.contrib.auth.models import Group
 from django.dispatch import receiver
-from django.db.models.signals import post_save
 
+if EMAIL_CONFIRMATION:
+    from ..signals import email_confirmed
 
-@receiver(post_save, sender=Profile)
-def new_user(sender, **kwargs):
-    """ operations to be performed each time a new user is created """
-    created = kwargs['created']
-    user = kwargs['instance']
-    if created:
-        # add user to default group
-        # TODO: make this configurable in settings
-        try:
-            default_group = Group.objects.get(name='registered')
-            user.groups.add(default_group)
-        except Group.DoesNotExist:
-            pass
-        user.save()
-
-
-if settings.NODESHOT['SETTINGS'].get('PROFILE_EMAIL_CONFIRMATION', True):
-    from emailconfirmation.signals import email_confirmed
-    from emailconfirmation.models import EmailConfirmation
-    
     @receiver(email_confirmed, sender=EmailConfirmation)
     def activate_user(sender, email_address, **kwargs):
         """

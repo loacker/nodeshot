@@ -1,8 +1,6 @@
 import uuid
 import tornado.websocket
 
-from . import PUBLIC_PIPE  # contained in __init__.py
-
 
 class WebSocketHandler(tornado.websocket.WebSocketHandler):
     """
@@ -34,12 +32,12 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
             self.channel = 'private'
         
         self.id = user_id
-        WebSocketHandler.channels[self.channel][self.id] = self
+        self.channels[self.channel][self.id] = self
         print 'Client connected to the %s channel.' % self.channel
     
     def remove_client(self):
         """ removes a client """
-        del WebSocketHandler.channels[self.channel][self.id]
+        del self.channels[self.channel][self.id]
     
     @classmethod
     def broadcast(cls, message):
@@ -56,8 +54,10 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
         Returns True if successful, False otherwise
         """
         try:
-            client = self.channels['private'][user_id]
+            client = self.channels['private'][str(user_id)]
         except KeyError:
+            print '====debug===='
+            print self.channels['private']
             print 'client with id %s not found' % user_id
             return False
         
@@ -88,7 +88,7 @@ class WebSocketHandler(tornado.websocket.WebSocketHandler):
         # broadcast new client connected message to all connected clients
         self.broadcast(new_client_message)
         
-        print WebSocketHandler.channels['private']
+        print self.channels['private']
 
     def on_message(self, message):
         """ method which is called every time the server gets a message from a client """

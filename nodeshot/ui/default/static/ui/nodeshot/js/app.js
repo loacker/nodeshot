@@ -1,285 +1,352 @@
-Nodeshot.addRegions({
-    body: '#body'
-});
+(function() {
+    'use strict';
 
-// localStorage check
-Nodeshot.addInitializer(function () {
-    Nodeshot.preferences = window.localStorage || {};
-});
+    Ns.views = {
+        map: {},
+        node: {},
+        layer: {}
+    };
 
-// init layout
-Nodeshot.addInitializer(function () {
+    // auxiliary object that keeps some details about the state of the app
+    Ns.state = {
+        currentAjaxRequest: null,  // needed to cancel an xhr request
+        autoToggleLoading: true,  // indicates wether the loading div should be toggled automatically
+        onNodeClose: 'map'  // when a node-details is closed go back on map
+    };
 
-    Nodeshot.accountMenu = new AccountMenuView({
-        model: Nodeshot.currentUser
-    });
-    Nodeshot.accountMenu.render();
+    Ns.url = function (resource) {
+        return Ns.settings.api + resource;
+    };
 
-});
+    Ns.title = $('title');
+    Ns.changeTitle = function (title) {
+        // empty prefix if title is empty
+        var prefix = title.trim() !== '' ? title + ' - ' : '';
+        Ns.title.text(prefix + Ns.settings.siteName);
+    };
 
-// init pages
-Nodeshot.addInitializer(function () {
-    MapView.prototype.resetDataContainers();
-    MapView.prototype.loadMapData();
-
-    Nodeshot.page = new Page();
-
-    Nodeshot.page.on('sync', function () {
-        Nodeshot.body.close();
-        Nodeshot.body.show(new PageView({
-            model: Nodeshot.page
-        }));
-    });
-
-    Nodeshot.page.on('error', function (model, http) {
-        if (http.status === 404) {
-            createModal({
-                message: 'the requested page was not found'
-            });
-        } else {
-            createModal({
-                message: 'there was an error while retrieving the page'
+    /**
+     * web analytics
+     */
+    Ns.track = function () {
+        var fragment = window.location.hash.substr(1),
+            title = Ns.title.text();
+        if (Ns.settings.googleAnalytics) {
+            ga('send', 'pageview', {
+                  'page': fragment,
+                  'title': title
             });
         }
+        if (Ns.settings.piwikAnalytics) {
+            _paq.push(['setDocumentTitle', title]);
+            _paq.push(['trackPageView', fragment]);
+        }
+    };
+
+    Ns.addRegions({
+        menu: '#ns-top-nav-links',
+        search: '#general-search',
+        account: '#main-actions',
+        notifications: '#notifications',
+        body: '#body'
     });
 
-    Backbone.history.start();
-});
+    // main initializers
+    Ns.addInitializer(function () {
+        Ns.account.show(new Ns.views.AccountMenu());
+        Ns.menu.show(new Ns.views.Menu());
+        Ns.search.show(new Ns.views.Search());
+        Ns.notifications.show(new Ns.views.Notification());
+        // empty node cache when user logs in / logs out
+        // needed for node can_edit
+        Ns.db.user.on('loggedin loggedout', function(){ Ns.db.nodes.reset() });
+        // init backbone app
+        Backbone.history.start();
+    });
 
-var NodeshotController = {
-    // index
-    index: function () {
-        Backbone.history.navigate('#pages/home', {
-            trigger: true
-        });
-    },
+    Ns.controller = {
+        // index
+        index: function () {
+            Ns.menu.currentView.openFirst();
+        },
 
-    // page details
-    getPage: function (slug) {
-        toggleLoading('show');
+        // page details
+        getPage: function (slug) {
+            new Ns.views.Page({ slug: slug });
+        },
 
-        Nodeshot.page.set('slug', slug);
-        Nodeshot.page.fetch();
+        // node list
+        getNodeList: function () {
+            new Ns.views.node.List();
+        },
 
-        var link = $('#nav-bar a[href="#/pages/' + slug + '"]');
+        // node details
+        getNode: function (slug) {
+            // load node from API
+            Ns.views.node.Detail.loadNode(slug, function (node) {
+                // show it on map
+                Ns.views.map.Layout.show('showNode', [node]);
+            });
+        },
 
-        // ensure no duplicate active links
-        $('#nav-bar li').removeClass('active');
+        // edit node
+        editNode: function (slug) {
+            // load node from API
+            Ns.views.node.Detail.loadNode(slug, function (node) {
+                // show it on map
+                Ns.views.map.Layout.show('showEditNode', [node]);
+            });
+        },
 
-        if (link.length && link.parents('.dropdown').length) {
-            link.parents('.dropdown').addClass('active');
-        } else {
-            link.trigger('click');
-        }
-    },
+        // map view
+        getMap: function () {
+            Ns.views.map.Layout.show('loadMap');
+        },
 
-    // node details
-    getNode: function (slug) {
-        var node = new Node(Nodeshot.nodesNamed[slug].feature.properties);
-        Nodeshot.body.close();
-        Nodeshot.body.show(new NodeDetailsView({
-            model: node
-        }));
-    },
-
-    // map view
-    getMap: function () {
-        Nodeshot.body.close();
-        Nodeshot.body.show(new MapView());
-        $('#nav-bar a[href="#/map"]').trigger('click');
-    },
-
-    // map node popup
-    getMapNode: function (slug) {
-        if (typeof (Nodeshot.body.currentView) === "undefined" || Nodeshot.body.currentView.name != 'MapView') {
+        addNode: function () {
             this.getMap();
-        }
-        Nodeshot.nodesNamed[slug].openPopup();
-    }
-}
+            Ns.body.currentView.addNode();
+        },
 
-var NodeshotRouter = new Marionette.AppRouter({
-    controller: NodeshotController,
-    appRoutes: {
-        "": "index",
-        "_=_": "index", // facebook redirects here
-        "pages/:slug": "getPage",
-        "map": "getMap",
-        "map/:slug": "getMapNode",
-        "nodes/:slug": "getNode"
-    }
-});
+        // map node popup
+        getMapPopup: function (id) {
+            this.getMap();
+            Ns.body.currentView.content.currentView.openLeafletPopup(id);
+        },
 
-$(document).ready(function ($) {
-    Nodeshot.start();
+        // map node popup
+        getMapLatLng: function (latlng) {
+            this.getMap();
+            Ns.body.currentView.content.currentView.goToLatLng(latlng);
+        },
 
-    // login / sign in
-    $('#js-signin-form').submit(function (e) {
-        e.preventDefault();
-        var data = $(this).serialize();
+        // layer list
+        getLayerList: function () {
+            new Ns.views.layer.List();
+        },
 
-        // Login
-        $.post('/api/v1/account/login/', data).error(function (http) {
-            // TODO improve
-            var json = http.responseJSON,
-                errorMessage = 'Invalid username or password',
-                zIndex = $('#signin-modal').css('z-index'); // original z-index
-            $('#signin-modal').css('z-index', 1002); // temporarily change
-            
-            // determine correct error message to show
-            errorMessage = json.non_field_errors || json.detail ||  errorMessage;
-            
-            createModal({
-                message: errorMessage,
-                successAction: function () {
-                    $('#signin-modal').css('z-index', zIndex)
-                } // restore z-index
+        // get layer details
+        getLayer: function (slug) {
+            new Ns.views.layer.Detail({ slug: slug })
+        },
+
+        // user profile view
+        getUser: function (username) {
+            new Ns.views.User({ username: username });
+        },
+
+        // user nodes
+        getUserNodes: function (username) {
+            new Ns.views.node.List({
+                collection: new Ns.collections.UserNode(null, { username: username }),
+                title: 'Nodes of user: ' + username,
+                addNode: false,
+                activateMenu: false,
+                partialStats: false,
+                cache: false
             });
-        }).done(function (response) {
-            $('#signin-modal').modal('hide');
-            // load User model which will trigger UI refresh
-            Nodeshot.currentUser.set(response.user);
-        });
+        },
+
+        // get account details
+        getAccount: function () {
+            new Ns.views.Account();
+        },
+
+        // logged in user changes password
+        getAccountPassword: function () {
+            new Ns.views.AccountPassword();
+        },
+
+        // reset forgotten password
+        getPasswordReset: function () {
+            new Ns.views.PasswordReset();
+        },
+
+        // edit profile
+        getEditUser: function () {
+            new Ns.views.EditUser();
+        },
+
+        getContactNode: function (slug) {
+            new Ns.views.Contact(null, { type: 'nodes', slug: slug });
+        },
+
+        getContactUser: function (slug) {
+            new Ns.views.Contact(null, { type: 'profiles', slug: slug });
+        },
+
+        getContactLayer: function (slug) {
+            new Ns.views.Contact(null, { type: 'layers', slug: slug });
+        }
+    };
+
+    Ns.router = new Marionette.AppRouter({
+        controller: Ns.controller,
+        appRoutes: {
+            '': 'index',
+            '_=_': 'index', // facebook redirects here
+            'pages/:slug': 'getPage',
+            'map': 'getMap',
+            'map/add': 'addNode',
+            'map/latlng/:latlng': 'getMapLatLng',
+            'map/:slug': 'getMapPopup',
+            'nodes': 'getNodeList',
+            'nodes/:slug': 'getNode',
+            'nodes/:slug/edit': 'editNode',
+            'layers': 'getLayerList',
+            'layers/:slug': 'getLayer',
+            'users/:username': 'getUser',
+            'users/:username/nodes': 'getUserNodes',
+            'account': 'getAccount',
+            'account/password/change': 'getAccountPassword',
+            'account/password/reset': 'getPasswordReset',
+            'account/profile/edit': 'getEditUser',
+            'nodes/:slug/contact': 'getContactNode',
+            'users/:slug/contact': 'getContactUser',
+            'layers/:slug/contact': 'getContactLayer'
+        }
     });
 
-    // sign up 
-    $('#js-signup-form').submit(function (e) {
-        e.preventDefault();
-        var form = $(this),
+    $(document).ready(function ($) {
+        Ns.start();
+
+        // login / sign in
+        $('#js-signin-form').submit(function (e) {
+            e.preventDefault();
+            var data = $(this).serializeJSON();
+            // data.remember is true if "on", false otherwise
+            data.remember = data.hasOwnProperty('remember') ? true : false;
+            // remember choice
+            localStorage.setObject('staySignedIn', data.remember);
+            Ns.db.user.login(data);
+        });
+
+        // sign up
+        $('#js-signup-form').submit(function (e) {
+            e.preventDefault();
+            var form = $(this),
             data = form.serialize();
 
-        // remove eventual errors
-        form.find('.error').removeClass('error');
+            // remove eventual errors
+            form.find('.error').removeClass('error');
 
-        $.post('/api/v1/profiles/', data).error(function (http) {
-            // TODO improve
-            // signup validation
-            var json = http.responseJSON;
+            $.post(Ns.url('profiles/'), data).error(function (http) {
+                // TODO improve
+                // signup validation
+                var json = http.responseJSON,
+                    key;
 
-            for (key in json) {
-                var input = $('#js-signup-' + key);
-                if (input.length) {
-                    var container = input.parent();
-                    container.attr('data-original-title', json[key]);
-                    container.addClass('error');
+                for (key in json) {
+                    var input = $('#js-signup-' + key);
+                    if (input.length) {
+                        var container = input.parent();
+                        container.attr('data-original-title', json[key]);
+                        container.addClass('error');
+                    }
                 }
-            }
 
-            form.find('.error').tooltip('show');
-            form.find('.hastip:not(.error)').tooltip('hide');
+                form.find('.error').tooltip('show');
+                form.find('.hastip:not(.error)').tooltip('hide');
 
-        }).done(function (response) {
-            $('#signup-modal').modal('hide');
-            createModal({
-                message: 'sent confirmation mail'
+            }).done(function (response) {
+                $('#signup-modal').modal('hide');
+                $.createModal({ message: gettext('confirmation mail sent') });
             });
         });
-    });
 
-    // signup link in sign in overlay
-    $('#js-signup-link').click(function (e) {
-        e.preventDefault();
-        $('#signin-modal').modal('hide');
-        $('#signup-modal').modal('show');
-    });
-
-
-    // signin link in signup overlay
-    $('#js-signin-link').click(function (e) {
-        e.preventDefault();
-        $('#signup-modal').modal('hide');
-        $('#signin-modal').modal('show');
-    });
-
-    // dismiss modal links
-    $('.js-dismiss').click(function (e) {
-        $(this).parents('.modal').modal('hide');
-    });
-
-    // enable tooltips
-    $('.hastip').tooltip();
-    
-    // load full user profile
-    if(Nodeshot.currentUser.get('username') !== undefined){
-        Nodeshot.currentUser.fetch();
-    }
-});
-
-var createModal = function (opts) {
-    var template_html = $('#modal-template').html(),
-        close = function () {
-            $('#tmp-modal').modal('hide')
-        },
-        options = $.extend({
-            message: '',
-            successMessage: 'ok',
-            successAction: function () {},
-            defaultMessage: null,
-            defaultAction: function () {}
-        }, opts);
-
-    $('body').append(_.template(template_html, options));
-
-    $('#tmp-modal').modal('show');
-
-    $('#tmp-modal .btn-success').one('click', function (e) {
-        close();
-        options.successAction()
-    });
-
-    $('#tmp-modal .btn-default').one('click', function (e) {
-        close();
-        options.defaultAction()
-    });
-
-    $('#tmp-modal').one('hidden.bs.modal', function (e) {
-        $('#tmp-modal').remove();
-    })
-};
-
-var toggleLoading = function (operation) {
-    var loading = $('#loading');
-
-    if (!loading.length) {
-        $('body').append(_.template($('#loading-template').html(), {}));
-        loading = $('#loading');
-
-        var dimensions = loading.getHiddenDimensions();
-        loading.outerWidth(dimensions.width);
-        loading.css({
-            left: 0,
-            margin: '0 auto'
-        });
-
-        // close loading
-        $('#loading .icon-close').click(function (e) {
-            toggleLoading();
-            if (Nodeshot.currentXHR) {
-                Nodeshot.currentXHR.abort();
+        // password strength
+        $('#js-signup-password').pwstrength({
+            common: {
+                minChar: 1
+            },
+            ui: {
+                container: '#js-password-strength-message',
+                viewports: {
+                    progress: '.pwstrength_viewport_progress',
+                    verdict: '.pwstrength_viewport_verdict'
+                },
+                verdicts: ['Very weak', 'Weak', 'Normal', 'Medium', 'Strong'],
+                scores: [10, 17, 26, 40, 50]
             }
+        }).focus(function (e) {
+            $('#js-password-strength-message').fadeIn(255);
         });
-    }
 
-    if (operation == 'show') {
-        loading.fadeIn(255);
-    } else if (operation == 'hide') {
-        loading.fadeOut(255);
-    } else {
-        loading.fadeToggle(255);
-    }
-};
+        // signup link in sign in overlay
+        $('#js-signup-link').click(function (e) {
+            e.preventDefault();
+            $('#signin-modal').modal('hide');
+            $('#signup-modal').modal('show');
+        });
 
-$(document).ajaxSend(function (event, xhr, settings) {
-    toggleLoading('show');
-    Nodeshot.currentXHR = xhr;
-});
+        // signin link in signup overlay
+        $('#js-signin-link').click(function (e) {
+            e.preventDefault();
+            $('#signup-modal').modal('hide');
+            $('#signin-modal').modal('show');
+        });
 
-$(document).ajaxStop(function () {
-    toggleLoading('hide');
-});
+        // dismiss modal links
+        $('.js-dismiss').click(function (e) {
+            $(this).parents('.modal').modal('hide');
+        });
 
-// extend underscore with formatDate shortcut
-_.formatDate = function(dateString){
-	// TODO: format configurable
-	return $.format.date(dateString, "dd MMMM yyyy - HH:mm")
-};
+        // enable tooltips
+        $('.hastip').tooltip();
+
+        // create CSS classes for clusters, statuses, ecc.
+        var css = _.template($('#dynamic-css-template').html());
+        $('head').append(css);
+
+        $('#mobile-nav').click(function (e) {
+            e.preventDefault();
+        });
+
+        $('#nav-bar').delegate('#ns-top-nav-links.in a:not(.dropdown-toggle)', 'click', function (e) {
+            $('#ns-top-nav-links').collapse('hide');
+        });
+
+        // automatically center modal depending on its width
+        $('body').delegate('.modal.autocenter', 'show.bs.modal', function (e) {
+            var dialog = $(this).find('.modal-dialog'),
+            dialog_dimensions = dialog.getHiddenDimensions(),
+            coefficient = $(this).attr('data-autocenter-coefficient');
+
+            if (!coefficient) {
+                coefficient = 2.1;
+            }
+
+            dialog.css({
+                width: dialog_dimensions.width,
+                right: 0
+            });
+
+            // vertically align to center
+            var new_height = ($(window).height() - dialog_dimensions.height) / coefficient;
+            // ensure new position is greater than zero
+            new_height = new_height > 0 ? new_height : 0;
+            // set new height
+            dialog.css('top', new_height);
+        });
+    });
+
+    $(window).load(function (e) {
+        $('#preloader').fadeOut(255, function () {
+            $('body').removeAttr('style');
+        });
+    });
+
+    $(document).ajaxSend(function (event, xhr, settings) {
+        if (settings.url.indexOf('notifications') > -1) {
+            return;
+        }
+        if (Ns.state.autoToggleLoading) {
+            $.toggleLoading('show');
+        }
+        Ns.state.currentAjaxRequest = xhr;
+    });
+
+    $(document).ajaxStop(function () {
+        $.toggleLoading('hide');
+    });
+}());

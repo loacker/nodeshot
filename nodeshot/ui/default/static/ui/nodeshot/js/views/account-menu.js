@@ -1,75 +1,63 @@
-var AccountMenuView = Backbone.Marionette.ItemView.extend({
-    name: 'AccountMenuView',
-    el: '#main-actions',
-    //className: 'center-stage multicolumn-md',
-    template: '#account-menu-template',
+(function(){
+    'use strict';
 
-    events: {
-        'click #js-logout': 'logout',
-        'click .notifications': 'openNotificationsPanel'
-    },
-    
-    // listen to models change and update accordingly
-    // used for login/logout rendering
-    modelEvents: {
-        'change': 'render'
-    },
+    Ns.views.AccountMenu = Marionette.ItemView.extend({
+        tagName: 'ul',
+        template: '#account-menu-template',
+        events: {
+            'click #js-logout': 'logout',
+            'click .notifications': 'openNotificationsPanel',
+            'click .icon-search': 'focusSearch'
+        },
+        // listen to models change and update accordingly
+        // used for login/logout rendering
+        modelEvents: {
+            'loggedin': 'render',
+            'logout': 'render'
+        },
 
-    initialize: function () {
-        this.truncateUsername();
-    },
+        ui: {
+            'notificationsCounter': '#js-notifications-count'
+        },
 
-    /*
-     * truncate long usernames
-     */
-    truncateUsername: function () {
-        var username = this.model.get('username');
+        initialize: function(){
+            this.model = Ns.db.user;
+            // reference to elements that are not part of this view
+            this.ext = { remember: $('#remember-signup') }
+        },
 
-        if (typeof (username) !== 'undefined' && username.length > 15) {
-            // add an ellipsis if username is too long
-            var truncated = username.substr(0, 13) + "&hellip;";
-            // update model
-            this.model.set('username', truncated);
+        onRender: function(){
+            this.staySignedInCheck();
+        },
+
+        /*
+         * remember user preference on "stay signed in" checkbox
+         */
+        staySignedInCheck: function () {
+            // check stay signed in checkbox
+            this.ext.remember.prop('checked', localStorage.getObject('staySignedIn', false));
+        },
+
+        /*
+         * logout
+         */
+        logout: function (e) {
+            e.preventDefault();
+            Ns.db.user.logout();
+        },
+
+        /**
+         * calls method of notifications view
+         */
+        openNotificationsPanel: function(e) {
+            Ns.notifications.currentView.openPanel(e);
+        },
+
+        /**
+         * calls method of search view
+         */
+        focusSearch: function(e) {
+            Ns.search.currentView.focusSearch(e);
         }
-    },
-
-    /*
-     * logout
-     */
-    logout: function (e) {
-        e.preventDefault();
-        Nodeshot.currentUser.clear();
-        $.post('api/v1/account/logout/').error(function () {
-            // TODO: improve!
-            createModal({
-                message: 'problem while logging out'
-            });
-        });
-    },
-
-    /*
-     * open notifications panel
-     */
-    openNotificationsPanel: function (e) {
-        e.preventDefault();
-
-        var notifications = $('#notifications');
-
-        // show panel if hidden
-        if (notifications.is(':hidden')) {
-            setNotificationsLeft();
-
-            notifications.fadeIn(255, function () {
-                // prepare scroller
-                $('#notifications .scroller').scroller('reset');
-
-                // clicking anywhere else closes the panel
-                $('html').one('click', function () {
-                    notifications.fadeOut(150);
-                });
-            });
-        } else {
-            notifications.fadeOut(150);
-        }
-    }
-});
+    });
+})();

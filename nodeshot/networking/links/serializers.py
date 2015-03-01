@@ -1,8 +1,4 @@
-from django.conf import settings
-from django.utils.translation import ugettext_lazy as _
-
 from rest_framework import pagination, serializers
-from rest_framework.reverse import reverse
 from rest_framework_gis import serializers as gis_serializers
 
 from nodeshot.core.base.serializers import DynamicRelationshipsMixin
@@ -18,16 +14,25 @@ __all__ = [
     'PaginatedLinkSerializer',
 ]
 
-  
+
 class LinkListSerializer(gis_serializers.GeoModelSerializer):
     """ location serializer  """
-    
+    layer = serializers.Field('layer_slug')
     quality = serializers.Field(source='quality')
-    details = serializers.HyperlinkedIdentityField(view_name='api_link_details')
-    
+    status = serializers.Field(source='get_status_display')
+    type = serializers.Field(source='get_type_display')
+    node_a_name = serializers.Field(source='node_a_name')
+    node_b_name = serializers.Field(source='node_b_name')
+
     class Meta:
         model = Link
-        fields = ['id', 'line', 'quality', 'details']
+        fields = [
+            'id',
+            'layer',
+            'node_a_name', 'node_b_name',
+            'status', 'type', 'line',
+            'metric_type', 'metric_value',
+        ]
 
 
 class LinkListGeoJSONSerializer(LinkListSerializer, gis_serializers.GeoFeatureModelSerializer):
@@ -38,26 +43,21 @@ class LinkListGeoJSONSerializer(LinkListSerializer, gis_serializers.GeoFeatureMo
 
 
 class LinkDetailSerializer(DynamicRelationshipsMixin, LinkListSerializer):
-    
-    access_level = serializers.Field(source='get_access_level_display')
-    status = serializers.Field(source='get_status_display')
-    type = serializers.Field(source='get_type_display')
-    node_a_name = serializers.Field(source='node_a_name')
-    node_b_name = serializers.Field(source='node_b_name')
     interface_a_mac = serializers.Field(source='interface_a_mac')
     interface_b_mac = serializers.Field(source='interface_b_mac')
     relationships = serializers.SerializerMethodField('get_relationships')
-    
+
     # this is needed to avoid adding stuff to DynamicRelationshipsMixin
     _relationships = {}
 
     class Meta:
         model = Link
         fields = [
-            'id', 
+            'id',
+            'layer',
             'node_a_name', 'node_b_name',
             'interface_a_mac', 'interface_b_mac',
-            'access_level', 'status', 'type', 'line', 
+            'status', 'type', 'line',
             'quality', 'metric_type', 'metric_value',
             'max_rate', 'min_rate', 'dbm', 'noise',
             'first_seen', 'last_seen',
@@ -84,18 +84,6 @@ class LinkDetailGeoJSONSerializer(LinkDetailSerializer, gis_serializers.GeoFeatu
         fields = LinkDetailSerializer.Meta.fields[:]
 
 
-#class LinkAddSerializer(NodeLinkListSerializer):
-#    """ Serializer for Link Creation """
-#    node = serializers.WritableField(source='node_id')
-#    type = serializers.WritableField(source='type')
-#    details = serializers.HyperlinkedIdentityField(view_name='api_link_details') 
-
-
 class PaginatedLinkSerializer(pagination.PaginationSerializer):
     class Meta:
         object_serializer_class = LinkListSerializer
-
-
-#class PaginatedNodeLinkSerializer(pagination.PaginationSerializer):
-#    class Meta:
-#        object_serializer_class = NodeLinkListSerializer

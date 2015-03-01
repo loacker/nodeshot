@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.utils.translation import ugettext_lazy as _
 from django.core.exceptions import ValidationError
 
@@ -10,7 +9,7 @@ from .models import *
 from .models.choices import INTERFACE_TYPES
 from .fields import MacAddressField, IPAddressField, IPNetworkField
 
-from nodeshot.core.base.fields import HStoreDictionaryField
+from rest_framework_hstore.fields import HStoreField
 
 
 __all__ = [
@@ -96,7 +95,7 @@ class DeviceDetailSerializer(DeviceListSerializer):
     vlan = serializers.SerializerMethodField('get_vlan_interfaces')
     vlan_url = serializers.HyperlinkedIdentityField(view_name='api_device_vlan')
     
-    data = HStoreDictionaryField(
+    data = HStoreField(
         required=False,
         label=_('extra data'),
         help_text=_('store extra attributes in JSON string')
@@ -192,7 +191,7 @@ class InterfaceSerializer(serializers.ModelSerializer):
     ip = serializers.SerializerMethodField('get_ip_addresses')
     ip_url = serializers.HyperlinkedIdentityField(view_name='api_interface_ip')
     
-    data = HStoreDictionaryField(
+    data = HStoreField(
         required=False,
         label=_('extra data'),
         help_text=_('store extra attributes in JSON string')
@@ -208,7 +207,7 @@ class InterfaceSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'access_level', 'type', 'name',
             'mac', 'mtu', 'tx_rate', 'rx_rate',
-             'data', 'added', 'updated', 'ip_url', 'ip',
+            'data', 'added', 'updated', 'ip_url', 'ip',
         ]
         read_only_fields = ['added', 'updated']
 
@@ -304,7 +303,7 @@ class BridgeSerializer(InterfaceSerializer):
         
         # redundant but necessary
         if(len(interfaces) < 2 and not self.partial) or \
-          (self.partial and attrs.has_key('interfaces') and len(interfaces) < 2):  # this line adds support for partial udpates with PATCH method
+          (self.partial and 'interfaces' in attrs and len(interfaces) < 2):  # this line adds support for partial udpates with PATCH method
             raise ValidationError(_(u'You must bridge at least 2 interfaces'))
         
         # when creating a new interface self.object is None

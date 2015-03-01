@@ -3,6 +3,19 @@
  * keep here all instructions related to fonts and text
  */
 
+@font-face {
+    font-family: 'Montserrat';
+    font-style: normal;
+    font-weight: 400;
+    src: local('Montserrat-Regular'), url(../fonts/montserrat-400.woff2) format('woff2'), url(../fonts/montserrat-400.woff) format('woff');
+}
+@font-face {
+    font-family: 'Montserrat';
+    font-style: normal;
+    font-weight: 700;
+    src: local('Montserrat-Bold'), url(../fonts/montserrat-700.woff2) format('woff2'), url(../fonts/montserrat-700.woff) format('woff');
+}
+
 body,
 .form-control
 {
@@ -41,6 +54,12 @@ h3,
 h5,
 h5,
 h6{ text-align: left }
+
+h1.title,
+h2.title{ margin-top: 0 }
+
+.row-ns h1.title,
+.row-ns h2.title{ margin-bottom: 0 }
 
 body article blockquote{
     padding-top: 15px;

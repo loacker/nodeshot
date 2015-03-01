@@ -1,13 +1,10 @@
-import simplejson as json
-
-from django.utils.translation import ugettext_lazy as _
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
-
 from rest_framework import generics, authentication
-from rest_framework.response import Response
 
 from nodeshot.core.base.mixins import ACLMixin
+
+# cache
+from rest_framework_extensions.cache.decorators import cache_response
+from nodeshot.core.base.cache import cache_by_group
 
 from .serializers import *
 from .models import *
@@ -20,11 +17,11 @@ class PageList(ACLMixin, generics.ListAPIView):
     authentication_classes = (authentication.SessionAuthentication,)
     queryset = Page.objects.published()
     serializer_class = PageListSerializer
-    
-    @method_decorator(cache_page(86400))  # cache for 1 day
-    def dispatch(self, *args, **kwargs):
-        return super(self.__class__, self).dispatch(*args, **kwargs)
-    
+
+    @cache_response(86400, key_func=cache_by_group)
+    def get(self, request, *args, **kwargs):
+        return super(PageList, self).get(request, *args, **kwargs)
+
 page_list = PageList.as_view()
 
 
@@ -35,11 +32,11 @@ class PageDetail(ACLMixin, generics.RetrieveAPIView):
     authentication_classes = (authentication.SessionAuthentication,)
     queryset = Page.objects.published()
     serializer_class = PageDetailSerializer
-    
-    @method_decorator(cache_page(86400))  # cache for 1 day
-    def dispatch(self, *args, **kwargs):
-        return super(self.__class__, self).dispatch(*args, **kwargs)
-    
+
+    @cache_response(86400, key_func=cache_by_group)
+    def get(self, request, *args, **kwargs):
+        return super(PageDetail, self).get(request, *args, **kwargs)
+
 page_detail = PageDetail.as_view()
 
 
@@ -51,11 +48,11 @@ class MenuList(ACLMixin, generics.ListAPIView):
     Retrieve menu item list.
     """
     authentication_classes = (authentication.SessionAuthentication,)
-    queryset = MenuItem.objects.published()
+    queryset = MenuItem.objects.published().filter(parent=None)
     serializer_class = MenuSerializer
-    
-    @method_decorator(cache_page(86400))  # cache for 1 day
-    def dispatch(self, *args, **kwargs):
-        return super(self.__class__, self).dispatch(*args, **kwargs)
-    
+
+    @cache_response(86400, key_func=cache_by_group)
+    def get(self, request, *args, **kwargs):
+        return super(MenuList, self).get(request, *args, **kwargs)
+
 menu_list = MenuList.as_view()

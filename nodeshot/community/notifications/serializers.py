@@ -1,5 +1,3 @@
-from django.utils.translation import ugettext_lazy as _
-
 from rest_framework import serializers
 from rest_framework.pagination import PaginationSerializer
 
@@ -21,31 +19,43 @@ class UnreadNotificationSerializer(serializers.ModelSerializer):
     """
     Unread notification serializer
     """
-    
     from_user_id = serializers.Field(source='from_user_id')
-    from_user_detail = serializers.HyperlinkedRelatedField(source='from_user', view_name='api_profile_detail', read_only=True)
-    action = serializers.SerializerMethodField('get_action')
+    from_user_detail = serializers.HyperlinkedRelatedField(
+        source='from_user',
+        view_name='api_profile_detail',
+        read_only=True
+    )
+    related_object = serializers.SerializerMethodField('get_related_object')
     
-    def get_action(self, obj):
-        """ return notification.get_action() """
-        action = obj.get_action()
-        return action if action != '' else None
+    def get_related_object(self, obj):
+        related = obj.related_object
+        if related is not None:
+            if hasattr(related, 'slug'):
+                return related.slug
+            else:
+                return related.id
+        return None
     
     class Meta:
         model = Notification
-        fields = ('id', 'type', 'from_user_id',
-                  'from_user_detail', 'text', 'action', 'added')
+        fields = (
+            'id', 'type', 'is_read', 'from_user_id',
+            'from_user_detail', 'related_object',
+            'text', 'added'
+        )
 
 
 class NotificationSerializer(UnreadNotificationSerializer):
     """
     Notification serializer
     """
-    
     class Meta:
         model = Notification
-        fields = ('id', 'type', 'from_user_id', 'from_user_detail',
-                  'text', 'action', 'is_read', 'added', 'updated')
+        fields = (
+            'id', 'type', 'is_read', 'from_user_id',
+            'from_user_detail', 'related_object',
+            'text', 'added'
+        )
 
 
 class PaginatedNotificationSerializer(PaginationSerializer):

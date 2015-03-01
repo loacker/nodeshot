@@ -7,6 +7,31 @@
 Nodeshot
 ********
 
+.. image:: https://travis-ci.org/ninuxorg/nodeshot.png
+   :target: https://travis-ci.org/ninuxorg/nodeshot
+
+.. image:: https://coveralls.io/repos/ninuxorg/nodeshot/badge.png
+  :target: https://coveralls.io/r/ninuxorg/nodeshot
+
+.. image:: https://landscape.io/github/ninuxorg/nodeshot/master/landscape.png
+   :target: https://landscape.io/github/ninuxorg/nodeshot/master
+   :alt: Code Health
+
+.. image:: https://requires.io/github/ninuxorg/nodeshot/requirements.png?branch=master
+   :target: https://requires.io/github/ninuxorg/nodeshot/requirements/?branch=master
+   :alt: Requirements Status
+
+.. image:: https://badge.fury.io/py/nodeshot.png
+   :target: http://badge.fury.io/py/nodeshot
+
+.. image:: https://pypip.in/d/nodeshot/badge.png
+   :target: https://pypi.python.org/pypi/nodeshot
+------------
+
+.. raw:: html
+
+    <p><iframe src="https://nodeshot.org/github-btn.html?user=ninuxorg&amp;repo=nodeshot&amp;type=watch&amp;count=true&amp;size=large" frameborder="0" scrolling="0" width="140" height="33"></iframe> <iframe src="https://nodeshot.org/github-btn.html?user=ninuxorg&amp;repo=nodeshot&amp;type=fork&amp;count=true&amp;size=large" frameborder="0" scrolling="0" width="140" height="33"></iframe></p>
+
 Nodeshot is an open source platform for **crowdsourcing georeferenced data**.
 
 Its goal it's to provide some robust tools to build a modern customized crowdsourcing web application quickly.
@@ -15,35 +40,21 @@ It is designed to be modular, flexible, configurable and extensible.
 
 **This documentation is a work in progress**.
 
-======================
-Status of this project
-======================
-
-The first version of nodeshot was released in **October 2011** and was designed specifically for the community `Ninux.org`_.
-
-.. _Ninux.org: http://ninux.org
-
-The project evolved to become more generic, modular and reusable.
-The version described in this documentation refers to the development version, which has been rewritten from scratch.
-
-The roadmap is the following:
-
- * a first early release is expected for **end of February 2014**
- * a second more complete release is expected for **May 2014**
+.. image:: https://raw.githubusercontent.com/ninuxorg/nodeshot/master/docs/topics/images/ui-nodeshot-map.png
+   :target: https://raw.githubusercontent.com/ninuxorg/nodeshot/master/docs/topics/images/ui-nodeshot-map.png
+|
 
 ====
 Code
 ====
 
-The development version is hosted at https://github.com/ninuxorg/nodeshot.
-
-Once the new version will be ready it will be merged back into the original repository (ninuxorg/nodeshot).
+The code is hosted at **Github**: https://github.com/ninuxorg/nodeshot.
 
 ============
 Mailing list
 ============
 
-If you have any issue or you want to follow the development of this software you can reach us at our `Mailing List`_.
+If you have any issue or you want to follow the development of this project you can reach us at our `Mailing List`_.
 
 .. _Mailing List: http://ml.ninux.org/mailman/listinfo/nodeshot
 
@@ -51,25 +62,31 @@ For past activities consult `The Nodeshot Archives`_.
 
 .. _The Nodeshot Archives: http://ml.ninux.org/pipermail/nodeshot/
 
-
 ========
 Contents
 ========
 
 .. toctree::
    :maxdepth: 2
-   
-   /topics/install
+
+   /topics/automated_install
+   /topics/manual_install
+   /topics/contribute
    /topics/admin
    /topics/api
-   /topics/open311
-   /topics/interoperability
+   /topics/nodes
+   /topics/layers
+   /topics/ui
+   /topics/profiles
    /topics/participation
+   /topics/social_login
+   /topics/mailing
+   /topics/websockets
+   /topics/synchronizers
+   /topics/open311
    /topics/oldimporter
+   /topics/sentry
    /topics/connectors
-
-
-
 
 ==================
 Indices and tables

@@ -24,6 +24,8 @@ For the **oldimporter** module to work, the following apps must be listed in
  * nodeshot.community.mailing
  * nodeshot.community.profiles
 
+By default these apps are included in ``nodeshot.conf.settings`` so you won't need to do anything.
+
 ===========
 Preparation
 ===========
@@ -31,9 +33,9 @@ Preparation
 Due to some major differences between the old and the new version some manual
 preparation needs to be done.
 
-------------------------------------
-0. Ensure your database is reachable
-------------------------------------
+----------------------------------------
+1. Ensure your old database is reachable
+----------------------------------------
 
 In order for the **oldimporter** to work it musts be able to connect to the remote old database.
 
@@ -41,25 +43,6 @@ If your old database is MySQL or PostgreSQL you should tweak its configuration t
 allow connections from the IP/hostname where the new version of nodeshot is installed.
 
 If your old database is Sqlite you can just copy the file to the new machine.
-
-------------------------
-1. Create Status Objects
-------------------------
-
-First of all, if you were using the old nodeshot version we assume that you are
-using nodeshot for a community network or a wifi network.
-
-So you must create the status objects which are appropiate for a community network.
-
-Start with the basic ones and then after the imports you might change their names, order, or whatever.
-
-So laod the default status objects::
-
-    cd /var/www/nodeshot/projects/ninux
-    # activate virtual env
-    source python/bin/activate
-    
-    python manage.py loaddata default_status
 
 ----------------
 2. Create Layers
@@ -86,64 +69,34 @@ Enable in settings.py
 
 Uncomment the following section in ``settings.py`` and tweak the settings
 ``ENGINE``, ``NAME``, ``USER``, ``PASSWORD``, ``HOST`` and ``PORT``
-according to your configuration, but leave ``DATABASE_ROUTERS`` unchanged:
+according to your configuration:
 
 .. code-block:: python
 
-    if 'test' not in sys.argv:
-        DATABASES['old_nodeshot'] = {
-           'ENGINE': 'django.db.backends.mysql',  # might be also postgresql or sqlite
-           'NAME': 'nodeshot',
-           'USER': 'nodeshot-readonly',
-           'PASSWORD': '*********',
-           'HOST': 'remote-ip',
-           'PORT': 'remote-port',
-        }
-        DATABASE_ROUTERS = [
-            'nodeshot.extra.oldimporter.db.DefaultRouter',
-            'nodeshot.extra.oldimporter.db.OldNodeshotRouter'
-        ]
+    # Import data from older versions
+    # More info about this feature here: http://nodeshot.readthedocs.org/en/latest/topics/oldimporter.html
+    #'old_nodeshot': {
+    #    'ENGINE': 'django.db.backends.mysql',
+    #    'NAME': 'nodeshot',
+    #    'USER': 'user',
+    #    'PASSWORD': 'password',
+    #    'OPTIONS': {
+    #           "init_command": "SET storage_engine=INNODB",
+    #    },
+    #    'HOST': '',
+    #    'PORT': '',
+    #}
 
-Uncomment ``nodeshot.extra.oldimporter`` in ``settings.INSTALLED_APPS``:
-
-.. code-block:: python
-
-    INSTALLED_APPS = [
-        # dependencies
-        'nodeshot.core.nodes',
-        'nodeshot.core.layers',
-        'nodeshot.networking.net',
-        'nodeshot.networking.links',
-        'nodeshot.community.mailing',
-        'nodeshot.community.profiles',
-        
-        # oldimporter module
-        'nodeshot.extra.oldimporter',
-        
-        # ...
-    ]
-
-And set the ``DEFAULT_LAYER`` (object id/primary key):
+And set ``NODESHOT_OLDIMPORTER_DEFAULT_LAYER`` (object id/primary key) to your default layer:
 
 .. code-block:: python
 
-    # ...
+    NODESHOT_OLDIMPORTER_DEFAULT_LAYER = <id>
 
-    'OLD_IMPORTER':{
-        'DEFAULT_LAYER': 1,
-        'STATUS_MAPPING': {
-            'a': 'active',
-            'h': 'active',
-            'ah': 'active',
-            'p': 'potential',
-            'default': 'potential'
-        }
-    },
-    
-    # ...
+Replace ``<id>`` with the id of your default layer.
 
 If you followed exactly the instructions in this document you can leave the default
-``STATUS_MAPPING`` setting unchanged.
+``NODESHOT_OLDIMPORTER_STATUS_MAPPING`` setting unchanged.
 
 ========================
 Install database drivers
@@ -158,14 +111,20 @@ procedure, you will have to install them now.
 For MySQL you can do::
 
     sudo apt-get install libmysqlclient-dev
-    
-    cd /var/www/nodeshot/projects/ninux
-    source python/bin/activate
+
+    workon nodeshot  # activate virtualenv
     pip install MySQL-python
 
 ===========
 Import data
 ===========
+
+.. warning::
+    The first import should start with a clean database
+
+First of all, enable your python-virtualenv if you haven't already::
+
+    workon nodeshot
 
 Ready? Go!::
 
@@ -175,16 +134,66 @@ If you want to see what the importer is doing behind the scenes raise the verbos
 
     python manage.py import_old_nodeshot --verbosity=2
 
+If you want to save the output for later inspection try this::
+
+    python manage.py import_old_nodeshot --verbosity=2 | tee import_result.txt
+
 Wait for the importer to import your data, when it finishes it will ask you if you
 are satisfied with the results or not, if you enter "No" the importer will delete all
 the imported records.
+
+**If the importer runs into an uncaught exception it will automatically delete all the imported data**.
+
+If you get such an error notify us and we'll try to fix it.
+
+In case you don't want the importer data to be deleted you can use the ``--nodelete`` option.
+
+===============
+Command options
+===============
+
+ * ``--verbosity``: verbosity level, can be 0 (no output), 1 (default), 2 (verbose), 3 (very verbose)
+ * ``--noinput``: suppress all user prompts
+ * ``--nodelete``: do not delete imported data in case of errors
+
+=============
+Periodic sync
+=============
+
+You can run the importer periodically and it will try to import new data.
+
+This process can be handy while you test the new version but before you launch
+your service to your audience we advise to reset everything and run the importer
+again on a clean database.
+
+It is better to specify the ``--nodelete`` option in order to avoid automatic deletion of data in case of errros::
+
+    python manage.py import_old_nodeshot --nodelete
+
+To automate the periodic import add the following dictionary in your ``CELERYBEAT_SCHEDULE`` setting::
+
+    CELERYBEAT_SCHEDULE = {
+
+        # ...
+
+        'import_old_nodeshot': {
+           'task': 'nodeshot.interop.oldimporter.tasks.import_old_nodeshot',
+           'schedule': timedelta(hours=12),
+           # pass --noinput and --nodelete options
+           'kwargs': { 'noinput': True, 'nodelete': True }
+        },
+
+        # ...
+
+    }
+
+This assumes that celery and celerybeat are configured and running correctly.
 
 ======================
 Deactivate oldimporter
 ======================
 
-When you are finished using the oldimporter module you can disable it by removing
-it from ``settings.INSTALLED_APPS`` and by removing/commenting the
+When you are finished using the oldimporter module you can disable it by commenting the
 ``DATABASES['old_nodeshot']`` setting.
 
 ===========================
@@ -203,7 +212,7 @@ and convert the queryset in a python list that will be used in the next steps.
 -------------------------------
 2. Extract user data from nodes
 -------------------------------
-    
+
 Since in old nodeshot there are no users but each node contains data
 such as name, email, and stuff like that, the script will create user accounts:
 
@@ -215,7 +224,7 @@ such as name, email, and stuff like that, the script will create user accounts:
 ---------------
 3. Import nodes
 ---------------
-    
+
     * **USER**: assign owner (the link is the email)
     * **LAYER**: assign layer (layers must be created by hand first!):
         1. if node has coordinates comprised in a specified layer choose that
@@ -224,10 +233,10 @@ such as name, email, and stuff like that, the script will create user accounts:
             1. use default layer if specified (configured in settings)
             2. discard the node if no default layer specified
     * **STATUS**: assign status depending on configuration:
-        ``settings.NODESHOT['OLD_IMPORTER']['STATUS_MAPPING']`` must be a dictionary in which the
+        ``settings.NODESHOT_OLDIMPORTER_STATUS_MAPPING`` must be a dictionary in which the
         key is the old status value while the value is the new status value
-        if ``settings.NODESHOT['OLD_IMPORTER']['STATUS_MAPPING']`` is False the default status will be used
-    * **HOSTPOT**: if status is hotspot or active and hotspot add this info in *HSTORE* data field
+        if ``settings.NODESHOT_OLDIMPORTER_STATUS_MAPPING`` is False the default status will be used
+    * **HOSTPOT**: if status is hotspot or active and hotspot add this info in the *HSTORE* data field
 
 -----------------
 4. Import devices

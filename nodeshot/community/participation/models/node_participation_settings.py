@@ -14,7 +14,10 @@ class NodeParticipationSettings(models.Model):
     rating_allowed = models.BooleanField(_('rating allowed?'), default=True)
     comments_allowed = models.BooleanField(_('comments allowed?'), default=True)
 
+    def __unicode__(self):
+        return self.node.name
+
     class Meta:
         app_label = 'participation'
         db_table = 'participation_node_settings'
-        verbose_name_plural = "participation_node_settings"
+        verbose_name_plural = 'participation_node_settings'

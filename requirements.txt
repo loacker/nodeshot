@@ -4,7 +4,7 @@
 # run pip install -r requirements
 
 psycopg2
-Django==1.6.3
+Django==1.6.10
 
 # python libraries
 Pillow
@@ -18,39 +18,54 @@ requests
 
 # better admin
 django-grappelli==2.5.3
-django-filebrowser==3.5.6
-
-# geodjango improved widgets
-django-olwidget
+django-filebrowser==3.5.7
+django-leaflet==0.15.2
 
 # RESTful API and API documentation
-djangorestframework==2.3.13
+djangorestframework==2.4.4
+drf-extensions==0.2.5
 django-rest-swagger
 markdown
 djangorestframework-gis
-
-# email confirmation with configurable user model
--e git+https://github.com/nemesisdesign/django-email-confirmation.git#egg=email_confirmation
+djangorestframework-hstore
 
 # authentication with social networks
-django-social-auth
+django-social-auth==0.7.28
 
 # versionable content
-django-reversion==1.8
+django-reversion==1.8.2
 
 # asynchronous tasks
-celery==3.1.11
+celery==3.1.17
 django-celery-email
-
-# Postgres HSTORE support
-django_hstore
-
-# fixture management
-# django-smuggler==0.4.1
--e git+https://github.com/semente/django-smuggler#egg=django-smuggler
 
 # migrations
 south
 
 # django-cors-headers
-django-cors-headers==0.12
+django-cors-headers==1.0
+
+# websockets
+tornado
+
+# cache
+django-redis
+
+# fixture management
+django-smuggler==0.4.1
+
+# networking
+netaddr
+django-netfields==0.2.2
+netengine==0.1.alpha
+
+# dev utils
+bpython
+django-extensions
+django-debug-toolbar
+
+# monitoring
+raven
+
+# translation
+django-rosetta

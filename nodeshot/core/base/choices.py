@@ -1,4 +1,4 @@
-from django.conf import settings
+from .settings import ACCESS_LEVELS as BASE_ACCESS_LEVELS
 
 
 TIME_ZONES = (
@@ -36,17 +36,11 @@ TIME_ZONES = (
     ('GMT+12', '(GMT+12:00) Auckland, Wellington, Fiji, Kamchatka'),
 )
 
-ACCESS_LEVELS = settings.NODESHOT['CHOICES']['ACCESS_LEVELS'].copy()
+ACCESS_LEVELS = BASE_ACCESS_LEVELS.copy()
 ACCESS_LEVELS['public'] = 0
-#ACCESS_LEVELS['private'] = 99
 
 PLANNED_STATUS = (
     (0, 'pending'),
     (1, 'completed'),
     (-1, 'cancelled')
-)
-
-# from 0 to 18
-MAP_ZOOM = (
-    [(n, n) for n in range(0, 19)]
 )
